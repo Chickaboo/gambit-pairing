@@ -26,12 +26,13 @@ from gambitpairing.core.player import Player
 def _is_topscorer(player: Player, current_round: int, total_rounds: int) -> bool:
     """
     FIDE Article 1.7: Topscorers are players who have a score of over 50%
-    of the maximum possible score. This applies throughout the tournament.
+    of the maximum possible score up to the current round.
     """
-    if total_rounds <= 0:
-        return False
-
-    max_possible_score = total_rounds  # Assuming 1 point per win, 0.5 for draw
+    if current_round <= 1:
+        return False  # No topscorers in round 1
+    
+    # Maximum possible score up to current round is (current_round - 1)
+    max_possible_score = current_round - 1
     return player.score > (max_possible_score * 0.5)
 
 
@@ -1667,30 +1668,43 @@ def _assign_colors_fide(
     pref2 = _get_color_preference(p2)
     abs1 = _has_absolute_color_preference(p1)
     abs2 = _has_absolute_color_preference(p2)
+    strong1 = _has_strong_color_preference(p1)
+    strong2 = _has_strong_color_preference(p2)
 
     # 5.2.1: Grant both colour preferences (if compatible)
     if pref1 and pref2 and pref1 != pref2:
         return (p1, p2) if pref1 == W else (p2, p1)
 
     # 5.2.2: Grant the stronger colour preference
+    # Priority: absolute > strong > mild
     if abs1 and not abs2:
         return (p1, p2) if pref1 == W else (p2, p1)
     elif abs2 and not abs1:
         return (p2, p1) if pref2 == W else (p1, p2)
     elif abs1 and abs2:
-        # Both absolute - grant the wider colour difference
-        return _assign_by_color_balance(p1, p2, current_round)
+        # Both absolute - if preferences are the same, this pairing should be avoided
+        # But if we must pair them, grant to player with wider color difference
+        balance1 = _get_color_imbalance(p1)
+        balance2 = _get_color_imbalance(p2)
+        if abs(balance1) >= abs(balance2):
+            return (p1, p2) if pref1 == W else (p2, p1)
+        else:
+            return (p2, p1) if pref2 == W else (p1, p2)
+    elif strong1 and not strong2 and not abs2:
+        return (p1, p2) if pref1 == W else (p2, p1)
+    elif strong2 and not strong1 and not abs1:
+        return (p2, p1) if pref2 == W else (p1, p2)
 
     # 5.2.3: Alternate colours to the most recent time when one had W and other B
-    # (Simplified implementation - could be enhanced with full history analysis)
-    last_colors_p1 = [c for c in p1.color_history if c is not None]
-    last_colors_p2 = [c for c in p2.color_history if c is not None]
-
-    if last_colors_p1 and last_colors_p2:
-        # Find most recent opposing colors and alternate
-        if last_colors_p1[-1] != last_colors_p2[-1]:
-            # Different last colors - maintain this pattern
-            return (p1, p2) if last_colors_p1[-1] == W else (p2, p1)
+    recent_alternating_round = _find_most_recent_alternating_colors(p1, p2)
+    if recent_alternating_round is not None:
+        # Get colors from that round and alternate
+        p1_colors = [c for c in p1.color_history if c is not None]
+        p2_colors = [c for c in p2.color_history if c is not None]
+        if len(p1_colors) > recent_alternating_round and len(p2_colors) > recent_alternating_round:
+            p1_color_then = p1_colors[recent_alternating_round]
+            # Alternate: if p1 had W then, give p1 B now (so p2 gets W)
+            return (p2, p1) if p1_color_then == W else (p1, p2)
 
     # 5.2.4: Grant the colour preference of the higher ranked player
     higher_ranked = (
@@ -1718,6 +1732,27 @@ def _assign_colors_fide(
             lower_ranked,
             higher_ranked,
         )  # Give opposite colour (Black for higher ranked)
+
+
+def _find_most_recent_alternating_colors(p1: Player, p2: Player) -> Optional[int]:
+    """
+    FIDE Article 5.2.3: Find the most recent round where p1 and p2 had different colors.
+    Returns the round index (0-based) or None if never had alternating colors.
+    """
+    if not hasattr(p1, "color_history") or not hasattr(p2, "color_history"):
+        return None
+    
+    p1_colors = [c for c in p1.color_history if c is not None]
+    p2_colors = [c for c in p2.color_history if c is not None]
+    
+    min_len = min(len(p1_colors), len(p2_colors))
+    
+    # Look backwards from most recent round to find alternating colors
+    for i in range(min_len - 1, -1, -1):
+        if p1_colors[i] != p2_colors[i]:
+            return i
+    
+    return None
 
 
 def _colors_satisfy_fide_preferences(white: Player, black: Player) -> bool:
@@ -2539,29 +2574,6 @@ def _has_absolute_color_imbalance(player: Player) -> bool:
     return (
         abs(white_count - black_count) > 1
     )  # Changed from >= 2 to > 1 for consistency
-
-
-def _get_repeated_color(player: Player) -> Optional[str]:
-    """Get the repeated color if player played same color twice in a row"""
-    if not hasattr(player, "color_history") or not player.color_history:
-        return None
-
-    valid_colors = [c for c in player.color_history if c is not None]
-    if len(valid_colors) >= 2 and valid_colors[-1] == valid_colors[-2]:
-        return valid_colors[-1]
-
-    return None
-
-
-def _get_color_imbalance(player: Player) -> int:
-    """Get the color imbalance (positive = more whites, negative = more blacks)"""
-    if not hasattr(player, "color_history") or not player.color_history:
-        return 0
-
-    valid_colors = [c for c in player.color_history if c is not None]
-    white_count = valid_colors.count(W)
-    black_count = valid_colors.count(B)
-    return white_count - black_count
 
 
 def _get_repeated_color(player: Player) -> Optional[str]:
