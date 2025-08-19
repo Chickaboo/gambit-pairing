@@ -65,10 +65,13 @@ def _compare_psd_lists(psd1: List[float], psd2: List[float]) -> int:
     FIDE Article 1.8.5: Compare PSD lists lexicographically.
     Returns: -1 if psd1 < psd2, 1 if psd1 > psd2, 0 if equal
     """
+    eps = 1e-9  # Small epsilon for floating point comparison
+    
     for i in range(min(len(psd1), len(psd2))):
-        if psd1[i] < psd2[i]:
+        diff = psd1[i] - psd2[i]
+        if diff < -eps:
             return -1
-        elif psd1[i] > psd2[i]:
+        elif diff > eps:
             return 1
 
     # If all compared elements are equal, shorter list is smaller
@@ -1366,9 +1369,13 @@ def _ensure_bsn_assignments(players: List[Player]) -> None:
     """
     Ensure all players have BSN (Bracket Sequential Number) assignments.
     BSN is assigned sequentially within each bracket according to FIDE rules.
+    Players should be sorted by score (desc) then pairing number (asc) before calling.
     """
     for i, player in enumerate(players):
         if not hasattr(player, "bsn") or player.bsn is None:
+            player.bsn = i + 1
+        # Ensure BSN is always a positive integer
+        elif player.bsn <= 0:
             player.bsn = i + 1
 
 
@@ -2637,12 +2644,28 @@ def _get_float_type(player: Player, rounds_back: int, current_round: int) -> Flo
 
 
 def _is_bye_candidate(player: Player, bye_assignee_score: float) -> bool:
-    """Check if player is eligible for a bye based on score"""
+    """
+    Check if player is eligible for a bye based on FIDE rules.
+    FIDE: Bye should go to lowest-ranked player in lowest score group
+    who hasn't already received a bye.
+    """
     # Basic bye eligibility: player hasn't received bye before and score is low enough
     return (
         not getattr(player, "has_received_bye", False)
         and player.score <= bye_assignee_score
     )
+
+
+def _validate_downfloater_status(player: Player, original_bracket_score: float) -> bool:
+    """
+    Validate if a player should be considered a downfloater.
+    A downfloater is a player who moves from a higher score bracket to a lower one.
+    """
+    if not hasattr(player, "score"):
+        return False
+    
+    # Player is a downfloater if their score is higher than the target bracket score
+    return player.score > original_bracket_score
 
 
 def _compute_configuration_quality_metrics(config: Dict) -> Dict[str, Any]:
