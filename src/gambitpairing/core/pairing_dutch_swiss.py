@@ -2646,7 +2646,10 @@ def _is_bye_candidate(player: Player, bye_assignee_score: float) -> bool:
 
 
 def _compute_configuration_quality_metrics(config: Dict) -> Dict[str, Any]:
-    """Compute comprehensive quality metrics for a pairing configuration"""
+    """
+    Compute comprehensive quality metrics for a pairing configuration.
+    Follows FIDE quality criteria C6-C21 in descending priority.
+    """
     metrics = {
         "paired_count": config.get("paired_count", 0),
         "downfloaters": config.get("downfloaters", 0),
@@ -2654,14 +2657,19 @@ def _compute_configuration_quality_metrics(config: Dict) -> Dict[str, Any]:
         "color_violations": config.get("color_violations", 0),
         "repeat_float_penalty": sum(config.get("float_counts", [])),
         "score_diff_total": config.get("score_diff_total", 0),
+        "absolute_color_violations": config.get("absolute_color_violations", 0),
+        "strong_color_violations": config.get("strong_color_violations", 0),
     }
 
-    # Compute overall quality score (lower is better)
+    # FIDE quality score (lower is better) - weights match FIDE priority order
     metrics["quality_score"] = (
-        metrics["downfloaters"] * 1000  # Primary: minimize downfloaters
-        + metrics["psd_sum"] * 100  # Secondary: minimize PSD
-        + metrics["repeat_float_penalty"] * 50  # Tertiary: minimize repeat floats
-        + metrics["color_violations"] * 10  # Quaternary: minimize color violations
+        -metrics["paired_count"] * 10000  # C6: Maximize number of pairs (negative = better)
+        + metrics["downfloaters"] * 1000  # C7: Minimize downfloaters  
+        + metrics["psd_sum"] * 100  # C8: Minimize PSD sum
+        + metrics["absolute_color_violations"] * 50  # C12: Absolute color violations
+        + metrics["strong_color_violations"] * 25   # C13: Strong color violations
+        + metrics["repeat_float_penalty"] * 10  # C14-C21: Minimize repeat floats
+        + metrics["color_violations"] * 5  # Other color violations
     )
 
     return metrics
