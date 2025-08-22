@@ -13,6 +13,7 @@ dependencies = [
     "beautifulsoup4",
     "httpx",
     "packaging",
+    "python-dateutil",
     "importlib-resources",
     "Pillow",  # Required for MSI branding generation
 ]
