@@ -143,14 +143,16 @@ class RoundRobin:
     using Berger tables. It supports 3-16 players and automatically handles
     bye assignments for tournaments with odd numbers of players.
 
-    Attributes:
+    Attributes
+    ----------
         players: Immutable tuple of players in tournament order
         berger_table: The Berger table used for this tournament size
         number_of_rounds: Total number of rounds in the tournament
         bye_number: Player index that receives byes (None for even tournaments)
         round_pairings: List of pairings for each round
 
-    Example:
+    Example
+    -------
         >>> players = [Player("Alice"), Player("Bob"), Player("Charlie"), Player("David")]
         >>> tournament = RoundRobin(players)
         >>> tournament.number_of_rounds
@@ -162,10 +164,12 @@ class RoundRobin:
         """
         Initialize a round-robin tournament.
 
-        Args:
+        Parameters
+        ----------
             players: Iterable of Player objects (3-16 players supported)
 
-        Raises:
+        Raises
+        ------
             PairingException: If number of players is outside the 3-16 range
         """
         self.players = tuple(players)  # Immutable to preserve order

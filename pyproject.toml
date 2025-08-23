@@ -44,16 +44,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-# Entry points
-[project.gui-scripts]
-gambit-pairing = "gambitpairing.__main__:main"
-
-
-[project.urls]
-Homepage = "https://www.chickaboo.net/gambit-pairing/"
-Repository = "https://github.com/Chickaboo/gambit-pairing"
-Issues = "https://github.com/Chickaboo/gambit-pairing/issues"
-
 [project.optional-dependencies]
 dev = [
     "build",
@@ -63,8 +53,24 @@ dev = [
     "pytest",
     "pre-commit",
     "pyright",
-    "PyQt6-stubs",  # Provides better type hints
+    # for better type hints
+    "PyQt6-stubs",
+    "lxml-stubs",
+    "types-python-dateutil",
+    "types-pexpect",
+    "types-html5lib",
+    "types-docutils",
+    "types-Pygments",
 ]
+# Entry points
+[project.gui-scripts]
+gambit-pairing = "gambitpairing.__main__:main"
+
+
+[project.urls]
+Homepage = "https://www.chickaboo.net/gambit-pairing/"
+Repository = "https://github.com/Chickaboo/gambit-pairing"
+Issues = "https://github.com/Chickaboo/gambit-pairing/issues"
 
 # Setuptools configuration
 [tool.setuptools]
@@ -128,3 +134,4 @@ reportDuplicateImport = "error"
 
 #  LocalWords:  reportMissingTypeStubs reportUnusedImport venvPath
 #  LocalWords:  reportImportCycles typeCheckingMode beautifulsoup
+#  LocalWords:  lxml pexpect html5lib Pygments
