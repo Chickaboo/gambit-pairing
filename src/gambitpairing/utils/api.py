@@ -5,11 +5,24 @@ various chess federation sources. Implementations prefer lightweight HTTP
 requests and BeautifulSoup parsing.
 """
 
-# Copyright (C) 2024  Nicolas Vaagen
+# Gambit Pairing
+# Copyright (C) 2025  Gambit Pairing developers
 #
-# This program is free software.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import urllib.parse
 from typing import Any, Dict, List
 
 import httpx
@@ -24,6 +37,7 @@ FLAG_RE = re.compile(r"/images/flags/([a-zA-Z]{2})\.svg(?:\?|$)", re.IGNORECASE)
 CFC_URL_STUB = "https://server.chess.ca/"
 FIDE_URL_STUB = "https://ratings.fide.com/"
 FIDE_PROFILE_URL = "https://ratings.fide.com/profile/"
+CFC_RATINGS_URL = "https://www.chess.ca/en/ratings/p/sr/"
 
 
 def get_cfc_player_info(cfc_id: str):
@@ -97,6 +111,118 @@ def get_cfc_player_info(cfc_id: str):
 
     except httpx.HTTPError as e:
         raise httpx.HTTPError(f"HTTP error: {e}")
+
+
+def build_cfc_url(cfc_id=None, first_name=None, last_name=None):
+    """Build the search URL for the CFC ratings page. Does not use api.
+
+    Parameters
+    ----------
+    cfc_id : str, optional
+        The player's CFC ID.
+    first_name : str, optional
+        The player's first name (supports wildcards, e.g., "Bob*").
+    last_name : str, optional
+        The player's last name (supports wildcards, e.g., "Fis*er").
+
+    Returns
+    -------
+    str
+        The fully constructed URL for the query.
+    """
+    params = {}
+    if cfc_id:
+        params["CFC id"] = cfc_id
+    else:
+        if first_name:
+            params["First name"] = first_name
+        if last_name:
+            params["Last name"] = last_name
+    query = "&".join(
+        f"{urllib.parse.quote_plus(k)}={urllib.parse.quote_plus(v)}"
+        for k, v in params.items()
+    )
+    return f"{CFC_RATINGS_URL}?{query}"
+
+
+def parse_cfc_results(html: str) -> List[dict]:
+    """Parse the HTML response from the CFC ratings page.
+
+    Parameters
+    ----------
+    html : str
+        The raw HTML content of the response.
+
+    Returns
+    -------
+    list of dict
+        A list of dictionaries, where each dictionary represents a player with:
+        - "Name": str
+        - "City": str
+        - "CFC ID": str
+        - "Expiry": str
+        - "Regular Rating": str
+        - "Quick Rating": str
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    players = soup.select("table tr")[1:]  # skip header
+
+    results = []
+    for player in players:
+        cols = [c.get_text(strip=True) for c in player.find_all("td")]
+        if len(cols) < 6:
+            # if there are more than six columns, it is not a player
+            continue
+        results.append(
+            {
+                "Name": cols[0],
+                "City": cols[1],
+                "CFC ID": cols[2],
+                "Expiry": cols[3],
+                "Regular Rating": cols[4],
+                "Quick Rating": cols[5],
+            }
+        )
+    return results
+
+
+def search_cfc(cfc_id=None, first_name=None, last_name=None, timeout=10.0):
+    """Search for a player in the CFC ratings database.
+
+    Parameters
+    ----------
+    cfc_id : str, optional
+        The player's CFC ID. If provided, `first_name` and `last_name` are ignored.
+    first_name : str, optional
+        The player's first name (supports wildcards).
+    last_name : str, optional
+        The player's last name (supports wildcards).
+    timeout : float, default=10.0
+        Timeout in seconds for the HTTP request.
+
+    Returns
+    -------
+    list of dict
+        A list of player dictionaries containing player details.
+
+    Raises
+    ------
+    httpx.RequestError
+        If there is a network-related issue.
+    httpx.HTTPStatusError
+        If the server responds with an HTTP error status.
+    """
+    url = build_cfc_url(cfc_id, first_name, last_name)
+    logger.info("api.search_cfc: Querying: {%s}", url)
+
+    with httpx.Client(
+        timeout=timeout, headers={"User-Agent": "CFC-Search/1.0"}
+    ) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+        res = parse_results(resp.text)
+        logger.debug("httpx response: %s", res)
+        return res
 
 
 def get_uscf_player_info(uscf_id):
@@ -532,4 +658,4 @@ def get_fide_top_players(count: int = 50) -> List[Dict[str, Any]]:
     return []
 
 
-#  LocalWords:  apicode RUS CHN BeautifulSoup
+#  LocalWords:  apicode RUS CHN BeautifulSoup sr
