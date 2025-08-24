@@ -1,3 +1,5 @@
+"""Players tab in the GUI."""
+
 # Gambit Pairing
 # Copyright (C) 2025  Gambit Pairing developers
 #
@@ -35,6 +37,7 @@ class NumericTableWidgetItem(QtWidgets.QTableWidgetItem):
     """Custom QTableWidgetItem for numerical sorting."""
 
     def __lt__(self, other):
+        """Widget `<`, compares the float(self/other.text()) of the item."""
         try:
             # Handle empty strings or non-numeric data gracefully
             self_val = float(self.text())
@@ -46,6 +49,8 @@ class NumericTableWidgetItem(QtWidgets.QTableWidgetItem):
 
 
 class PlayersTab(QtWidgets.QWidget):
+    """Player tab used in GUI."""
+
     status_message = pyqtSignal(str)
     history_message = pyqtSignal(str)
     dirty = pyqtSignal()
@@ -147,7 +152,7 @@ class PlayersTab(QtWidgets.QWidget):
         self.main_layout.addWidget(self.no_players_placeholder)
 
     def _calculate_age(self, dob_str: Optional[str]) -> Optional[int]:
-        """Calculates age from a date of birth string (YYYY-MM-DD)."""
+        """Calculate age from a date of birth string (YYYY-MM-DD)."""
         if not dob_str:
             return None
         try:
@@ -323,7 +328,7 @@ class PlayersTab(QtWidgets.QWidget):
             self.update_ui_state()
 
     def update_player_table_row(self, player: Player):
-        """Finds and updates the QTableWidget row for a given player."""
+        """Find and updates the QTableWidget row for a given player."""
         for i in range(self.table_players.rowCount()):
             item = self.table_players.item(i, 0)
             if item and item.data(Qt.ItemDataRole.UserRole) == player.id:
@@ -515,6 +520,7 @@ class PlayersTab(QtWidgets.QWidget):
         try:
             with open(filename, "w", encoding="utf-8", newline="") as f:
                 writer = csv.writer(f)
+
                 writer.writerow(
                     [
                         "Name",

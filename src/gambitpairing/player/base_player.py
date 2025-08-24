@@ -112,7 +112,6 @@ class Player:
         int or None
             The players age, if known
         """
-
         # Try to calculate from date of birth
         if self.dob:
             today = date.today()
@@ -124,7 +123,7 @@ class Player:
 
     @property
     def date_of_birth(self) -> Optional[date]:
-        """Return the date of birth of this Player
+        """Return the date of birth of this Player.
 
         Returns
         -------
@@ -133,9 +132,9 @@ class Player:
         """
         return self.dob
 
-    @date_of_birth.setter
+    @date_of_birth.setter  # type: ignore[attr-defined]
     def set_date_of_birth(self, value: date) -> None:
-        """Set the date of birth
+        """Set the date of birth.
 
         Parameters
         ----------
@@ -169,7 +168,6 @@ class Player:
         """Return the colors of the last two non-bye games played."""
         valid_colors = [c for c in self.color_history if c is not None]
         if len(valid_colors) >= 2:
-            # type: ignore | this confuses my type checker
             return valid_colors[-1], valid_colors[-2]
         elif len(valid_colors) == 1:
             return valid_colors[-1], None  # type: ignore
@@ -207,9 +205,9 @@ class Player:
                 black_games_played = +1
 
         if white_games_played > black_games_played:
-            return B
+            return B  # type: ignore[return-value]
         elif black_games_played > white_games_played:
-            return W
+            return W  # type: ignore[return-value]
 
         return None
 
@@ -243,7 +241,9 @@ class Player:
 
         self.score += result
         self.running_scores.append(self.score)
-        self.color_history.append(color)  # color can be None for a bye
+        self.color_history.append(
+            color  # type: ignore[arg-type]
+        )  # color can be None for a bye
         if color == B:
             self.num_black_games += 1
         if opponent is None:  # This means it was a bye
@@ -270,4 +270,4 @@ class Player:
         cls
             A Player created from the data
         """
-        return cls.from_dict(player_data=player_data)
+        cls(**player_data)
