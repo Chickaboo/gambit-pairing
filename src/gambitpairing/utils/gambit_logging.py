@@ -20,7 +20,6 @@
 import logging
 import os
 import sys
-from logging.handlers import RotatingFileHandler
 
 from PyQt6 import QtCore
 
