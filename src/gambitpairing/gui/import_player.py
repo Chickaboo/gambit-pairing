@@ -9,6 +9,7 @@ from gambitpairing import APP_NAME, APP_VERSION, utils
 from gambitpairing.gui.dialogs import (
     PlayerManagementDialog,
 )
+from gambitpairing.gui.notification import show_notification
 from gambitpairing.tournament import Tournament
 from gambitpairing.utils import setup_logger
 
@@ -50,6 +51,16 @@ class ImportPlayer:
             self.main_window.players_tab.refresh_player_list()
             self.main_window.players_tab.update_ui_state()
             self.main_window.mark_dirty()
+            # Provide modern notification feedback
+            try:
+                show_notification(
+                    self.main_window,
+                    "Players imported via API.",
+                    duration=3000,
+                    notification_type="success",
+                )
+            except Exception:
+                pass
 
 
 #  LocalWords:  GambitPairingMainWindow

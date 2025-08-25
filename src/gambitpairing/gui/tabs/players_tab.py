@@ -24,6 +24,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from gambitpairing.gui.dialogs import PlayerManagementDialog
+from gambitpairing.gui.notification import show_notification
 from gambitpairing.gui.notournament_placeholder import (
     NoTournamentPlaceholder,
     PlayerPlaceholder,
@@ -485,9 +486,18 @@ class PlayersTab(QtWidgets.QWidget):
                 self.dirty.emit()
                 self.refresh_player_list()
                 self.update_ui_state()
-                QtWidgets.QMessageBox.information(
-                    self, "Import Successful", f"Imported {added_count} players."
-                )
+                # Modern notification
+                try:
+                    show_notification(
+                        self,
+                        f"Imported {added_count} players from {Path(filename).name}",
+                        duration=3500,
+                        notification_type="success",
+                    )
+                except Exception:
+                    QtWidgets.QMessageBox.information(
+                        self, "Import Successful", f"Imported {added_count} players."
+                    )
             else:
                 QtWidgets.QMessageBox.warning(
                     self,
@@ -496,9 +506,17 @@ class PlayersTab(QtWidgets.QWidget):
                 )
         except Exception as e:
             logging.exception("Error importing players:")
-            QtWidgets.QMessageBox.critical(
-                self, "Import Error", f"Could not import players:\n{e}"
-            )
+            try:
+                show_notification(
+                    self,
+                    f"Error importing players: {e}",
+                    duration=6000,
+                    notification_type="error",
+                )
+            except Exception:
+                QtWidgets.QMessageBox.critical(
+                    self, "Import Error", f"Could not import players:\n{e}"
+                )
 
     def export_players_csv(self):
         # This method's logic remains the same

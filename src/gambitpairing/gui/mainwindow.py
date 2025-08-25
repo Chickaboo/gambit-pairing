@@ -37,6 +37,7 @@ from gambitpairing.gui.dialogs import (
     UpdatePromptDialog,
 )
 from gambitpairing.gui.import_player import ImportPlayer
+from gambitpairing.gui.notification import show_notification
 from gambitpairing.gui.tabs import (
     CrosstableTab,
     HistoryTab,
@@ -457,6 +458,15 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
                 self._set_tournament_on_tabs()
                 self.standings_tab.update_standings_table_headers()
                 self._update_ui_state()
+                try:
+                    show_notification(
+                        self,
+                        f"New tournament '{name}' created.",
+                        duration=3500,
+                        notification_type="success",
+                    )
+                except Exception:
+                    pass
 
     def show_settings_dialog(self) -> bool:
         if not self.tournament:
@@ -615,13 +625,30 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
                 f"--- Tournament loaded from {QFileInfo(filename).fileName()} ---"
             )
             self.statusBar().showMessage(f"Loaded tournament: {self.tournament.name}")
+            try:
+                show_notification(
+                    self,
+                    f"Loaded tournament: {self.tournament.name}",
+                    duration=3000,
+                    notification_type="info",
+                )
+            except Exception:
+                pass
 
         except Exception as e:
             logging.exception("Error loading tournament:")
             self.reset_tournament_state()
-            QtWidgets.QMessageBox.critical(
-                self, "Load Error", f"Could not load tournament file:\n{e}"
-            )
+            try:
+                show_notification(
+                    self,
+                    f"Could not load tournament: {e}",
+                    duration=6000,
+                    notification_type="error",
+                )
+            except Exception:
+                QtWidgets.QMessageBox.critical(
+                    self, "Load Error", f"Could not load tournament file:\n{e}"
+                )
 
         self._update_ui_state()
 
