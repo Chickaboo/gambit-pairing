@@ -46,3 +46,8 @@ def resize_list_to_show_all_items(list_widget: QListWidget) -> None:
     # Disable vertical scrollbar and set height
     list_widget.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     list_widget.setFixedHeight(total_height + frame_height)
+
+
+def is_round_robin(tournament) -> bool:
+    """Is a tournament round robin."""
+    return getattr(tournament, "pairing_system", False) == "round_robin"

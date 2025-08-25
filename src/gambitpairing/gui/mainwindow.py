@@ -21,12 +21,12 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QFileInfo, Qt
 from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QFormLayout, QLayout, QMessageBox, QWidget
 
 from gambitpairing import APP_NAME, APP_VERSION, utils
 from gambitpairing.gui.dialogs import (
@@ -44,9 +44,10 @@ from gambitpairing.gui.tabs import (
     StandingsTab,
     TournamentTab,
 )
+from gambitpairing.player import Player
 from gambitpairing.tournament import Tournament
 from gambitpairing.update import Updater, UpdateWorker
-from gambitpairing.utils import setup_logger
+from gambitpairing.utils import is_round_robin, setup_logger
 
 logger = setup_logger(__name__)
 
@@ -145,7 +146,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
             "&Export Standings...", self.standings_tab.export_standings
         )
         self.settings_action = self._create_action(
-            "S&ettings...", self.show_settings_dialog
+            "S&ettings...", self.show_tournament_settings_dialog
         )
         self.exit_action = self._create_action("E&xit", self.close, "Ctrl+Q")
 
@@ -215,7 +216,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         help_menu.addAction(self.update_action)
 
     def _create_action(
-        self, text: str, slot: callable, shortcut: str = "", tooltip: str = ""
+        self, text: str, slot: Callable, shortcut: str = "", tooltip: str = ""
     ) -> QAction:
         """Create and configure a QAction.
 
@@ -246,6 +247,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         Icons are loaded from the system theme for a native look and feel.
         """
         toolbar = self.addToolBar("Main Toolbar")
+        assert toolbar is not None
         # Prevent detaching / floating
         toolbar.setMovable(False)
         try:
@@ -432,12 +434,14 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         self._update_ui_state()
 
     def prompt_new_tournament(self):
-        if not self.check_save_before_proceeding():
+        """Show the new tournament prompt."""
+        if not self.check_save_if_dirty():
+            logger.info("save cancelled")
             return
 
-        dialog = NewTournamentDialog(self)
-        if dialog.exec():
-            data = dialog.get_data()
+        new_tour_dlg = NewTournamentDialog(self)
+        if new_tour_dlg.exec():
+            data = new_tour_dlg.get_data()
             if data:
                 name, num_rounds, tiebreak_order, pairing_system = data
                 self.reset_tournament_state()
@@ -450,42 +454,50 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
                 )
                 # Store pairing_system as an attribute if needed:
                 self.pairing_system = pairing_system
-                self.update_history_log(
-                    f"--- New Tournament '{name}' Created (Rounds: {num_rounds}, Pairing: {pairing_system}) ---"
-                )
+
+                log_msg = f"--- New Tournament '{name}' Created (Rounds: {num_rounds}, Pairing: {pairing_system}) ---"
+                self.update_history_log(log_msg)
+                logger.info(log_msg)
+
                 self.mark_dirty()
                 self._set_tournament_on_tabs()
                 self.standings_tab.update_standings_table_headers()
                 self._update_ui_state()
 
-    def show_settings_dialog(self) -> bool:
+    def show_tournament_settings_dialog(self) -> bool:
+        """Show the tournament settings dialog."""
         if not self.tournament:
+            logger.info("No tournament, no settings")
             return False
 
         dialog = SettingsDialog(
             self.tournament.num_rounds, self.tournament.tiebreak_order, self
         )
         tournament_started = len(self.tournament.rounds_pairings_ids) > 0
-        # Hide rounds spinbox if round robin, disable if tournament started
-        if getattr(self.tournament, "pairing_system", None) == "round_robin":
+        if is_round_robin(self.tournament):
+            # Hide rounds spinbox if round robin
             dialog.spin_num_rounds.hide()
             # Find and hide the label too - look through the form layout
             rounds_group = None
-            for i in range(dialog.layout().count()):
-                item = dialog.layout().itemAt(i)
-                if (
-                    item
-                    and item.widget()
-                    and isinstance(item.widget(), QtWidgets.QGroupBox)
-                ):
-                    if item.widget().title() == "General":
+
+            dia_layout: Optional[QLayout] = dialog.layout()
+
+            assert dia_layout  # ensure layout
+
+            for i in range(dia_layout.count()):
+                item = dia_layout.itemAt(i)
+                widget: QWidget | None = dia_layout.widget()
+                assert widget  # ensure
+
+                if item and widget and isinstance(widget, QtWidgets.QGroupBox):
+                    if widget.title() == "General":
                         rounds_group = item.widget()
                         break
 
             if rounds_group and isinstance(
                 rounds_group.layout(), QtWidgets.QFormLayout
             ):
-                form_layout = rounds_group.layout()
+                form_layout: QFormLayout = rounds_group.layout()  # type: ignore[assignment]
                 label = form_layout.labelForField(dialog.spin_num_rounds)
                 if label:
                     label.hide()
@@ -523,7 +535,14 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         """Append a timestamped message to the history log tab."""
         self.history_tab.update_history_log(message)
 
-    def save_tournament(self, save_as=False):
+    def save_tournament(self, save_as=False) -> bool:
+        """Save the current tournament.
+
+        Returns
+        -------
+        bool
+            If it was successful
+        """
         if not self.tournament:
             return False
         if not self._current_filepath or save_as:
@@ -533,6 +552,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
             if not filename:
                 return False
             self._current_filepath = filename
+            logger.info("filepath set to %s", filename)
 
         try:
             data = self.tournament.to_dict()
@@ -552,12 +572,13 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
             with open(self._current_filepath, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
             self.mark_clean()
-            self.statusBar().showMessage(
+            self.statusBar().showMessage(  # type: ignore[union-attr]
                 f"Tournament saved to {self._current_filepath}"
             )
-            self.update_history_log(
-                f"--- Tournament saved to {QFileInfo(self._current_filepath).fileName()} ---"
-            )
+
+            log_msg = f"--- Tournament saved to {QFileInfo(self._current_filepath).fileName()} ---"
+            self.update_history_log(log_msg)
+            logger.info(log_msg)
             return True
         except Exception as e:
             logging.exception("Error saving tournament:")
@@ -567,7 +588,8 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
             return False
 
     def load_tournament(self):
-        if not self.check_save_before_proceeding():
+        """Load a tournament from a JSON file."""
+        if not self.check_save_if_dirty():
             return
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Load Tournament", "", "JSON Files (*.json)"
@@ -625,7 +647,14 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
         self._update_ui_state()
 
-    def check_save_before_proceeding(self) -> bool:
+    def check_save_if_dirty(self) -> bool:
+        """Check if you want to save if the self is dirty.
+
+        Returns
+        -------
+        bool
+            good to proceed
+        """
         if not self._dirty:
             return True
 
@@ -674,7 +703,6 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         """Check for a previously downloaded update and asks to install it."""
         if not self.updater:
             return False
-
         pending_path = self.updater.get_pending_update_path()
         if pending_path:
             reply = QtWidgets.QMessageBox.question(
@@ -687,7 +715,9 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
             if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.is_updating = True
-                self.statusBar().showMessage("Restarting to apply update...")
+                status_br = self.statusBar()
+                assert status_br
+                status_br.showMessage("Restarting to apply update...")
                 self.updater.apply_update(pending_path)
                 QtCore.QTimer.singleShot(100, self.close)
                 return True  # Update is being applied
@@ -719,13 +749,14 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
                 self, "Update Check", "The update checker is not configured."
             )
             return
-
-        self.statusBar().showMessage("Checking for updates...")
+        stus_br = self.statusBar()
+        assert stus_br
+        stus_br.showMessage("Checking for updates...")
         has_update = self.updater.check_for_updates()
         if has_update:
             self.prompt_update()
         else:
-            self.statusBar().showMessage("No new updates available.")
+            stus_br.showMessage("No new updates available.")
             QtWidgets.QMessageBox.information(
                 self,
                 "Update Check",
@@ -808,16 +839,20 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
     def _restart_with_update(self, extracted_path: str):
         self.is_updating = True
-        self.statusBar().showMessage("Restarting to apply update...")
-        self.updater.apply_update(extracted_path)
+        self.statusBar().showMessage("Restarting to apply update...")  # type: ignore[union-attr]
+        self.updater.apply_update(extracted_path)  # type: ignore[union-attr]
         QtCore.QTimer.singleShot(100, self.close)
 
-    def closeEvent(self, event: QCloseEvent):
+    def closeEvent(self, event: QCloseEvent | None):
+        """Close event handling."""
+        if event == None:
+            return
+
         if self.is_updating:
             event.accept()
             return
 
-        if self.check_save_before_proceeding():
+        if self.check_save_if_dirty():
             logging.info(f"{APP_NAME} closing.")
             event.accept()
         else:
@@ -840,6 +875,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
     def get_confirmation(
         self, action="", message="Are you sure you want to proceed?"
     ) -> bool:
+        """Get confirmation from the user."""
         reply = QMessageBox.question(
             self,
             action,
