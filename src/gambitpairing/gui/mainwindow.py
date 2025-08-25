@@ -424,7 +424,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         self._set_tournament_on_tabs()  # Pass None to clear tabs
 
         # Explicitly clear UI elements in tabs
-        self.players_tab.list_players.clear()
+        self.players_tab.clean()
         self.tournament_tab.table_pairings.setRowCount(0)
         self.tournament_tab.lbl_bye.setText("Bye: None")
         self.standings_tab.table_standings.setRowCount(0)

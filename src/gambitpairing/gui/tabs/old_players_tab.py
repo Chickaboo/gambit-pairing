@@ -67,7 +67,7 @@ class PlayersTab(QtWidgets.QWidget):
     history_message = pyqtSignal(str)
     dirty = pyqtSignal()
     request_reset_tournament = pyqtSignal()
-    request_standings_update = pyqtSignal()
+    standings_update_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -78,34 +78,38 @@ class PlayersTab(QtWidgets.QWidget):
         player_group_layout = QtWidgets.QVBoxLayout(self.player_group)
 
         # --- Player Table ---
-        self.players_tbl = QtWidgets.QTableWidget()
-        self.players_tbl.setToolTip(
+        self.table_players = QtWidgets.QTableWidget()
+        self.table_players.setToolTip(
             "Registered players. Right-click to Edit/Withdraw/Reactivate/Remove."
         )
-        self.players_tbl.setColumnCount(4)  # Name, Rating, Age, Active
-        self.players_tbl.setHorizontalHeaderLabels(["Name", "Rating", "Age", "Status"])
-        self.players_tbl.setContextMenuPolicy(
+        self.table_players.setColumnCount(4)  # Name, Rating, Age, Active
+        self.table_players.setHorizontalHeaderLabels(
+            ["Name", "Rating", "Age", "Status"]
+        )
+        self.table_players.setContextMenuPolicy(
             QtCore.Qt.ContextMenuPolicy.CustomContextMenu
         )
-        self.players_tbl.customContextMenuRequested.connect(self.on_player_context_menu)
-        self.players_tbl.setAlternatingRowColors(True)
-        self.players_tbl.setSelectionBehavior(
+        self.table_players.customContextMenuRequested.connect(
+            self.on_player_context_menu
+        )
+        self.table_players.setAlternatingRowColors(True)
+        self.table_players.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )
-        self.players_tbl.setEditTriggers(
+        self.table_players.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
-        self.players_tbl.setSortingEnabled(True)
+        self.table_players.setSortingEnabled(True)
 
         # Resize columns
-        header = self.players_tbl.horizontalHeader()
+        header = self.table_players.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Interactive)
-        self.players_tbl.setColumnWidth(1, 110)  # Rating
-        self.players_tbl.setColumnWidth(2, 90)  # Age
-        self.players_tbl.setColumnWidth(3, 130)  # Status
+        self.table_players.setColumnWidth(1, 110)  # Rating
+        self.table_players.setColumnWidth(2, 90)  # Age
+        self.table_players.setColumnWidth(3, 130)  # Status
 
         header.setSortIndicatorShown(True)
         header.setSectionsClickable(True)
@@ -117,8 +121,8 @@ class PlayersTab(QtWidgets.QWidget):
         except Exception:
             pass
 
-        player_group_layout.addWidget(self.players_tbl)
-        self.players_tbl.hide()  # Hide table initially
+        player_group_layout.addWidget(self.table_players)
+        self.table_players.hide()  # Hide table initially
 
         self.btn_add_player_detail = QtWidgets.QPushButton(" Add New Player...")
         self.btn_add_player_detail.setToolTip(
@@ -129,7 +133,7 @@ class PlayersTab(QtWidgets.QWidget):
         self.main_layout.addWidget(self.player_group)
 
         # Ensure sufficient row height for padded cells
-        vheader = self.players_tbl.verticalHeader()
+        vheader = self.table_players.verticalHeader()
         vheader.setDefaultSectionSize(38)  # Increase default row height
         vheader.setMinimumSectionSize(38)
 
@@ -155,23 +159,12 @@ class PlayersTab(QtWidgets.QWidget):
         self.main_layout.addWidget(self.no_tournament_placeholder)
         self.main_layout.addWidget(self.no_players_placeholder)
 
-    def clean(self) -> None:
-        """Clean up all players and reset everything to defaults."""
-        self.players_tbl = QtWidgets.QTableWidget()
-
-    def get_player_context_menu(self, point: QtCore.QPoint) -> None:
-        """Get the player context menu for a clicked on player.
-
-        Parameters
-        ----------
-        point : QtCore.QPoint
-            point on the player selected
-        """
-        row = self.players_tbl.rowAt(point.y())
+    def on_player_context_menu(self, point: QtCore.QPoint) -> None:
+        row = self.table_players.rowAt(point.y())
         if row < 0 or not self.tournament:
             return
 
-        player_id_item = self.players_tbl.item(row, 0)
+        player_id_item = self.table_players.item(row, 0)
         if not player_id_item:
             return
 
@@ -194,7 +187,7 @@ class PlayersTab(QtWidgets.QWidget):
         remove_action.setEnabled(not tournament_started)  # type: ignore[union-attr]
         toggle_action.setEnabled(True)  # type: ignore[union-attr]
 
-        action = menu.exec(self.players_tbl.mapToGlobal(point))
+        action = menu.exec(self.table_players.mapToGlobal(point))
 
         if action == edit_action:
             dialog = PlayerManagementDialog(
@@ -263,7 +256,7 @@ class PlayersTab(QtWidgets.QWidget):
                     self.history_message.emit(
                         f"Player '{player.name}' removed from tournament."
                     )
-                self.players_tbl.removeRow(row)
+                self.table_players.removeRow(row)
                 self.status_message.emit(f"Player '{player.name}' removed.")
         self.update_ui_state()
 
@@ -431,3 +424,199 @@ class PlayersTab(QtWidgets.QWidget):
         self.table_players.setItem(row_position, 3, status_item)
 
         self.table_players.setSortingEnabled(True)
+
+    def import_players_csv(self):
+        # This method's logic remains the same
+        if self.tournament and len(self.tournament.rounds_pairings_ids) > 0:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Import Error",
+                "Cannot import players after tournament has started.",
+            )
+            return
+        if not self.tournament:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Tournament",
+                "Please create a tournament before importing players.",
+            )
+            return
+
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import Players", "", "CSV Files (*.csv);;Text Files (*.txt)"
+        )
+        if not filename:
+            return
+        try:
+            with open(
+                filename, "r", encoding="utf-8-sig"
+            ) as f:  # Use utf-8-sig for BOM
+                reader = csv.DictReader(f)
+                added_count = 0
+                for row in reader:
+                    name = row.get("Name")
+                    if not name or any(
+                        p.name == name for p in self.tournament.players.values()
+                    ):
+                        continue  # Skip empty names or duplicates
+                    rating_str = row.get("Rating")
+                    rating = (
+                        int(rating_str) if rating_str and rating_str.isdigit() else None
+                    )
+                    player = Player(
+                        name=name,
+                        rating=rating,
+                        gender=row.get("Gender"),
+                        dob=row.get("Date of Birth"),
+                        phone=row.get("Phone"),
+                        email=row.get("Email"),
+                        club=row.get("Club"),
+                        federation=row.get("Federation"),
+                    )
+                    self.tournament.players[player.id] = player
+                    added_count += 1
+            if added_count > 0:
+                self.history_message.emit(
+                    f"Imported {added_count} players from {filename}."
+                )
+                self.dirty.emit()
+                self.refresh_player_list()
+                self.update_ui_state()
+                QtWidgets.QMessageBox.information(
+                    self, "Import Successful", f"Imported {added_count} players."
+                )
+            else:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Import Notice",
+                    "No new players were imported. Check for empty names or duplicates.",
+                )
+        except Exception as e:
+            logging.exception("Error importing players:")
+            QtWidgets.QMessageBox.critical(
+                self, "Import Error", f"Could not import players:\n{e}"
+            )
+
+    def export_players_csv(self):
+        # This method's logic remains the same
+        if not self.tournament or not self.tournament.players:
+            QtWidgets.QMessageBox.information(
+                self, "Export Error", "No players available to export."
+            )
+            return
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export Players", "", "CSV Files (*.csv)"
+        )
+        if not filename:
+            return
+        try:
+            with open(filename, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+
+                writer.writerow(
+                    [
+                        "Name",
+                        "Rating",
+                        "Gender",
+                        "Date of Birth",
+                        "Phone",
+                        "Email",
+                        "Club",
+                        "Federation",
+                        "Active",
+                        "ID",
+                    ]
+                )
+                for player in sorted(
+                    list(self.tournament.players.values()), key=lambda p: p.name
+                ):
+                    writer.writerow(
+                        [
+                            player.name,
+                            player.rating if player.rating is not None else "",
+                            player.gender or "",
+                            player.dob or "",
+                            player.phone or "",
+                            player.email or "",
+                            player.club or "",
+                            player.federation or "",
+                            "Yes" if player.is_active else "No",
+                            player.id,
+                        ]
+                    )
+            self.status_message.emit(f"Players exported to {filename}")
+        except Exception as e:
+            logging.exception("Error exporting players:")
+            QtWidgets.QMessageBox.critical(
+                self, "Export Error", f"Could not export players:\n{e}"
+            )
+
+    def set_tournament(self, tournament):
+        self.tournament = tournament
+        self.refresh_player_list()
+        self._update_visibility()
+
+    def _update_visibility(self):
+        """Show/hide content based on tournament existence."""
+        if not self.tournament:
+            # No tournament: show only the placeholder
+            self.no_tournament_placeholder.show()
+            self.no_players_placeholder.hide()
+            self.table_players.hide()
+            self.btn_add_player_detail.hide()  # Completely hide the button
+            self.player_group.hide()  # Hide the group box title for perfect wall
+        else:
+            # Tournament exists: hide placeholder and show appropriate content
+            self.no_tournament_placeholder.hide()
+            self.player_group.show()
+            if not self.tournament.players:
+                # Tournament but no players: show player placeholder
+                self.no_players_placeholder.show()
+                self.table_players.hide()
+                self.btn_add_player_detail.hide()  # Hide until first player is added
+                # Hide the group box frame/title to create seamless wall look
+                self.player_group.hide()
+            else:
+                # Tournament with players: show table and add button
+                self.no_players_placeholder.hide()
+                self.player_group.show()
+                self.table_players.show()
+                self.btn_add_player_detail.show()
+                tournament_started = len(self.tournament.rounds_pairings_ids) > 0
+                self.btn_add_player_detail.setEnabled(not tournament_started)
+
+    def update_ui_state(self):
+        self._update_visibility()
+
+    def refresh_player_list(self):
+        self.table_players.setSortingEnabled(False)
+        self.table_players.setRowCount(0)
+
+        # Use the visibility method to handle all states
+        self._update_visibility()
+
+        # Only populate table if tournament exists and has players
+        if self.tournament and self.tournament.players:
+            for player in sorted(
+                self.tournament.players.values(), key=lambda p: p.name
+            ):
+                self.add_player_to_table(player)
+            self.table_players.setSortingEnabled(True)
+
+    def _trigger_create_tournament(self):
+        # Walk up the parent chain to find the main window
+        parent = self.parent()
+        while parent is not None:
+            if hasattr(parent, "prompt_new_tournament"):
+                parent.prompt_new_tournament()
+                return
+            parent = parent.parent()
+
+    def _trigger_import_tournament(self):
+        # Walk up the parent chain to find the main window
+        parent = self.parent()
+        while parent is not None:
+            if hasattr(parent, "load_tournament"):
+                parent.load_tournament()
+                return
+            parent = parent.parent()
