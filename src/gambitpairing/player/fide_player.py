@@ -60,7 +60,8 @@ class FidePlayer(Player):
         self.fide_standard: Optional[int] = fide_standard
         self.fide_rapid: Optional[int] = fide_rapid
         self.fide_blitz: Optional[int] = fide_blitz
-        self.birth_year: Optional[int] = date_of_birth.year
+        if date_of_birth:
+            self.birth_year: int = date_of_birth.year
         self.score: float = 0.0
         self.is_active: bool = True  # Used for withdrawals
 

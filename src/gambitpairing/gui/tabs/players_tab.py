@@ -120,10 +120,6 @@ class PlayersTab(QtWidgets.QWidget):
         player_group_layout.addWidget(self.btn_add_player_detail)
         self.main_layout.addWidget(self.player_group)
 
-        # --- Compatibility: Legacy list_players for reset_tournament_state() ---
-        self.list_players = QtWidgets.QListWidget()
-        self.list_players.setVisible(False)  # Not used, but present for compatibility
-
         # Ensure sufficient row height for padded cells
         vheader = self.table_players.verticalHeader()
         vheader.setDefaultSectionSize(38)  # Increase default row height
@@ -150,25 +146,6 @@ class PlayersTab(QtWidgets.QWidget):
         self.no_players_placeholder.hide()
         self.main_layout.addWidget(self.no_tournament_placeholder)
         self.main_layout.addWidget(self.no_players_placeholder)
-
-    def _calculate_age(self, dob_str: Optional[str]) -> Optional[int]:
-        """Calculate age from a date of birth string (YYYY-MM-DD)."""
-        if not dob_str:
-            return None
-        try:
-            # Assuming dob_str is in a format that fromisoformat can handle, like YYYY-MM-DD
-            dob_date = datetime.fromisoformat(
-                dob_str.split(" ")[0]
-            )  # Handle potential time part
-            today = datetime.today()
-            age = (
-                today.year
-                - dob_date.year
-                - ((today.month, today.day) < (dob_date.month, dob_date.day))
-            )
-            return age
-        except (ValueError, TypeError):
-            return None  # Return None if format is wrong
 
     def on_player_context_menu(self, point: QtCore.QPoint) -> None:
         row = self.table_players.rowAt(point.y())

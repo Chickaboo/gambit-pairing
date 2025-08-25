@@ -16,8 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from datetime import date
+from typing import Optional
 
-class CfcPlayer:
+from gambitpairing.club import Club
+from gambitpairing.player.base_player import Player
+
+
+class CfcPlayer(Player):
     """
     Container for a CFC player record.
 
@@ -57,12 +63,12 @@ class CfcPlayer:
     def __init__(
         self,
         name: str,
-        city: str,
-        cfc_id: str,
-        expiry: str,
-        regular_rating: str,
-        quick_rating: str,
-    ):
+        city: Optional[str] = None,
+        cfc_id: Optional[str] = None,
+        expiry: Optional[str] = None,
+        regular_rating: Optional[str] = None,
+        quick_rating: Optional[str] = None,
+    ) -> None:
         self.name = name
         self.city = city
         self.cfc_id = cfc_id
@@ -78,28 +84,7 @@ class CfcPlayer:
         str
             A compact string containing the player's name and CFC ID.
         """
-        return f"<Player {self.name} (CFC ID: {self.cfc_id})>"
+        return f"<CFC Player {self.name} (CFC ID: {self.cfc_id})>"
 
-    def to_dict(self) -> dict:
-        """
-        Convert the player data to a dictionary.
 
-        Returns
-        -------
-        dict
-            Dictionary containing:
-            - 'Name': str
-            - 'City': str
-            - 'CFC ID': str
-            - 'Expiry': str
-            - 'Regular Rating': str
-            - 'Quick Rating': str
-        """
-        return {
-            "Name": self.name,
-            "City": self.city,
-            "CFC ID": self.cfc_id,
-            "Expiry": self.expiry,
-            "Regular Rating": self.regular_rating,
-            "Quick Rating": self.quick_rating,
-        }
+#  LocalWords:  YYYY
