@@ -48,6 +48,18 @@ class NumericTableWidgetItem(QtWidgets.QTableWidgetItem):
             return super().__lt__(other)
 
 
+class PlayerRoles:
+    """Custom Qt item data roles for player information.
+
+    Extends UserRole to store player ID, name, and score data
+    in Qt model items beyond standard display text.
+    """
+
+    PlayerIdRole = Qt.ItemDataRole.UserRole + 1
+    PlayerNameRole = Qt.ItemDataRole.UserRole + 2
+    PlayerScoreRole = Qt.ItemDataRole.UserRole + 3
+
+
 class PlayersTab(QtWidgets.QWidget):
     """Player tab used in GUI."""
 
@@ -165,15 +177,15 @@ class PlayersTab(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         edit_action = menu.addAction("Edit Player Details...")
-        withdraw_action_text = (
+        toggle_action_text = (
             "Withdraw Player" if player.is_active else "Reactivate Player"
         )
-        withdraw_action = menu.addAction(withdraw_action_text)
+        toggle_action = menu.addAction(toggle_action_text)
         remove_action = menu.addAction("Remove Player")
 
-        edit_action.setEnabled(not tournament_started)
-        remove_action.setEnabled(not tournament_started)
-        withdraw_action.setEnabled(True)
+        edit_action.setEnabled(not tournament_started)  # type: ignore[union-attr]
+        remove_action.setEnabled(not tournament_started)  # type: ignore[union-attr]
+        toggle_action.setEnabled(True)  # type: ignore[union-attr]
 
         action = menu.exec(self.table_players.mapToGlobal(point))
 
@@ -218,7 +230,10 @@ class PlayersTab(QtWidgets.QWidget):
                 self.update_player_table_row(player)
                 self.history_message.emit(f"Player '{player.name}' details updated.")
                 self.dirty.emit()
-        elif action == withdraw_action:
+        elif action == toggle_action:
+
+            # remove player from active Players list
+            self.active_players.remove(player.id)
             player.is_active = not player.is_active
             status_log_msg = "Withdrawn" if not player.is_active else "Reactivated"
             self.update_player_table_row(player)
