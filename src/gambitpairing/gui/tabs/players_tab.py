@@ -87,7 +87,9 @@ class PlayersTab(QtWidgets.QWidget):
         self.players_tbl.setContextMenuPolicy(
             QtCore.Qt.ContextMenuPolicy.CustomContextMenu
         )
-        self.players_tbl.customContextMenuRequested.connect(self.on_player_context_menu)
+        self.players_tbl.customContextMenuRequested.connect(
+            self.get_player_context_menu
+        )
         self.players_tbl.setAlternatingRowColors(True)
         self.players_tbl.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
