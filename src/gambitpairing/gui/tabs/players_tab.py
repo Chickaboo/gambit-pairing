@@ -69,8 +69,18 @@ class PlayersTab(QtWidgets.QWidget):
     request_reset_tournament = pyqtSignal()
     request_standings_update = pyqtSignal()
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, main_window=None):
+
+        # ensure main window
+        if not main_window:
+            raise RuntimeError(
+                "PlayersTab must referance main_window. main_window is (%s)"
+                % main_window
+            )
+        # else
+        super().__init__(main_window)
+
+        self.main_window = main_window
         self.tournament = None
         self.main_layout = QtWidgets.QVBoxLayout(self)
         self.player_group = QtWidgets.QGroupBox("Players")
@@ -137,11 +147,9 @@ class PlayersTab(QtWidgets.QWidget):
 
         # Initialize placeholders
         self.no_tournament_placeholder = NoTournamentPlaceholder(self, "Players")
-        self.no_tournament_placeholder.create_tournament_requested.connect(
-            self._trigger_create_tournament
-        )
+        self.no_tournament_placeholder.create_tournament_requested.connect(self._)
         self.no_tournament_placeholder.import_tournament_requested.connect(
-            self._trigger_import_tournament
+            self.main_window.load_tournament()
         )
         self.no_players_placeholder = PlayerPlaceholder(self)
         self.no_players_placeholder.import_players_requested.connect(
@@ -199,6 +207,9 @@ class PlayersTab(QtWidgets.QWidget):
         action = menu.exec(self.players_tbl.mapToGlobal(point))
 
         if action == edit_action:
+
+            # make a switch statement to choose dialogue
+
             dialog = PlayerManagementDialog(
                 self, player_data=player.to_dict(), tournament=self.tournament
             )
@@ -239,8 +250,8 @@ class PlayersTab(QtWidgets.QWidget):
                 self.update_player_table_row(player)
                 self.history_message.emit(f"Player '{player.name}' details updated.")
                 self.dirty.emit()
-        elif action == toggle_action:
 
+        elif action == toggle_action:
             # remove player from active Players list
             self.active_players.remove(player.id)
             player.is_active = not player.is_active
@@ -270,7 +281,7 @@ class PlayersTab(QtWidgets.QWidget):
         self.update_ui_state()
 
     def add_player_detailed(self):
-        # This method's logic remains largely the same, but it will call add_player_to_table
+        """TODO: doc-string"""
         tournament_started = (
             self.tournament and len(self.tournament.rounds_pairings_ids) > 0
         )
@@ -303,6 +314,7 @@ class PlayersTab(QtWidgets.QWidget):
                     self, "Duplicate Player", f"Player '{data['name']}' already exists."
                 )
                 return
+            # TODO
             new_player = Player(
                 name=data["name"],
                 rating=data["rating"],
@@ -330,23 +342,23 @@ class PlayersTab(QtWidgets.QWidget):
 
     def update_player_table_row(self, player: Player):
         """Find and updates the QTableWidget row for a given player."""
-        for i in range(self.table_players.rowCount()):
-            item = self.table_players.item(i, 0)
+        for i in range(self.players_tbl.rowCount()):
+            item = self.players_tbl.item(i, 0)
             if item and item.data(Qt.ItemDataRole.UserRole) == player.id:
                 # Update Name
                 item.setText(player.name)
 
                 # Update Rating
-                rating_item = self.table_players.item(i, 1)
+                rating_item = self.players_tbl.item(i, 1)
                 rating_item.setText(str(player.rating or ""))
 
                 # Update Age
-                age_item = self.table_players.item(i, 2)
+                age_item = self.players_tbl.item(i, 2)
                 age = self._calculate_age(player.dob)
                 age_item.setText(str(age) if age is not None else "")
 
                 # Update Status
-                status_item = self.table_players.item(i, 3)
+                status_item = self.players_tbl.item(i, 3)
                 status_text = "Active" if player.is_active else "Inactive"
                 status_item.setText(status_text)
 
@@ -354,9 +366,7 @@ class PlayersTab(QtWidgets.QWidget):
                 color = (
                     QtGui.QColor("gray")
                     if not player.is_active
-                    else self.table_players.palette().color(
-                        QtGui.QPalette.ColorRole.Text
-                    )
+                    else self.players_tbl.palette().color(QtGui.QPalette.ColorRole.Text)
                 )
                 item.setForeground(color)
                 rating_item.setForeground(color)
@@ -365,9 +375,9 @@ class PlayersTab(QtWidgets.QWidget):
                 break
 
     def add_player_to_table(self, player: Player):
-        self.table_players.setSortingEnabled(False)  # Disable sorting during insert
-        row_position = self.table_players.rowCount()
-        self.table_players.insertRow(row_position)
+        self.players_tbl.setSortingEnabled(False)  # Disable sorting during insert
+        row_position = self.players_tbl.rowCount()
+        self.players_tbl.insertRow(row_position)
 
         # Name Item
         name_item = QtWidgets.QTableWidgetItem(player.name)
@@ -427,9 +437,38 @@ class PlayersTab(QtWidgets.QWidget):
             age_item.setForeground(color)
             status_item.setForeground(color)
 
-        self.table_players.setItem(row_position, 0, name_item)
-        self.table_players.setItem(row_position, 1, rating_item)
-        self.table_players.setItem(row_position, 2, age_item)
-        self.table_players.setItem(row_position, 3, status_item)
+        self.players_tbl.setItem(row_position, 0, name_item)
+        self.players_tbl.setItem(row_position, 1, rating_item)
+        self.players_tbl.setItem(row_position, 2, age_item)
+        self.players_tbl.setItem(row_position, 3, status_item)
 
-        self.table_players.setSortingEnabled(True)
+        self.players_tbl.setSortingEnabled(True)
+
+    def toggle_tournament_placeholder(self) -> None:
+        """Show/hide content based on tournament existence."""
+        if not self.tournament:
+            # No tournament: show only the placeholder
+            self.no_tournament_placeholder.show()
+            self.no_players_placeholder.hide()
+            self.players_tbl.hide()
+            self.btn_add_player_detail.hide()  # Completely hide the button
+            self.player_group.hide()  # Hide the group box title for perfect wall
+        else:
+            # Tournament exists: hide placeholder and show appropriate content
+            self.no_tournament_placeholder.hide()
+            self.player_group.show()
+            if not self.tournament.players:
+                # Tournament but no players: show player placeholder
+                self.no_players_placeholder.show()
+                self.players_tbl.hide()
+                self.btn_add_player_detail.hide()  # Hide until first player is added
+                # Hide the group box frame/title to create seamless wall look
+                self.player_group.hide()
+            else:
+                # Tournament with players: show table and add button
+                self.no_players_placeholder.hide()
+                self.player_group.show()
+                self.players_tbl.show()
+                self.btn_add_player_detail.show()
+                tournament_started = len(self.tournament.rounds_pairings_ids) > 0
+                self.btn_add_player_detail.setEnabled(not tournament_started)
