@@ -62,9 +62,35 @@ class Tournament:
         self.rounds_byes_ids: List[Optional[str]] = []
         self.previous_matches: Set[frozenset[str]] = set()
         self.manual_pairings: Dict[int, Dict[str, str]] = {}
-        self.pairing_system: str = pairing_system  # NEW: pairing system type
+        self.pairing_system: str = pairing_system
 
-    def get_player_list(self, active_only=False) -> List[Player]:
+        # internal state, not to be touched
+        self._started = False
+
+    @property
+    def started(self) -> bool:
+        """The tournament is underway."""
+        return self._started
+
+    @property
+    def player_list(self) -> list[Player]:
+        """Get all players in the tournament.
+
+        Returns
+        -------
+        list
+            All the players in the Tournament
+        """
+        return list(self.players.values())
+
+    def remove_player(self, id: str) -> None:
+        """Remove a single player by id."""
+        if id in self.players:
+            del self.players[id]
+        else:
+            raise KeyError(f"No player with id {player_id}")
+
+    def get_players(self, active_only=False) -> List[Player]:
         """Get the players in this tournament.
 
         Parameters

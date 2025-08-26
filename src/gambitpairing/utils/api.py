@@ -439,28 +439,18 @@ def search_fide_players(name=None, fide_id=None, limit=50, is_cancelled=None):
                                 )
 
                                 if sex_element:
-                                    try:
-                                        sex_text = (
-                                            sex_element.get_text(strip=True).lower()
-                                            if hasattr(sex_element, "get_text")
-                                            else str(sex_element).lower()
-                                        )
-                                        if (
-                                            "male" in sex_text
-                                            and "female" not in sex_text
-                                        ):
-                                            gender = "M"
-                                        elif "female" in sex_text:
-                                            gender = "F"
-                                    except Exception:
-                                        # Parsing error for this profile; leave gender as None
-                                        pass
+                                    sex_text = (
+                                        sex_element.get_text(strip=True).lower()
+                                        if hasattr(sex_element, "get_text")
+                                        else str(sex_element).lower()
+                                    )
+                                    if "male" in sex_text and "female" not in sex_text:
+                                        gender = "M"
+                                    elif "female" in sex_text:
+                                        gender = "F"
 
                         except (httpx.TimeoutException, httpx.RequestError):
                             # Skip gender lookup on timeout/network error
-                            pass
-                        except Exception as e:
-                            logger.debug(f"Error parsing profile for gender: {e}")
                             pass
 
                     # Fallback: Try to infer gender from titles even for players beyond the limit

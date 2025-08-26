@@ -333,7 +333,7 @@ class PlayersTab(QtWidgets.QWidget):
 
                 # Update Age
                 age_item = self.table_players.item(i, 2)
-                age = self._calculate_age(player.dob)
+                age = self._calculate_age(player.age)
                 age_item.setText(str(age) if age is not None else "")
 
                 # Update Status
@@ -368,7 +368,7 @@ class PlayersTab(QtWidgets.QWidget):
         rating_item = NumericTableWidgetItem(str(player.rating or ""))
 
         # Age Item
-        age = self._calculate_age(player.dob)
+        age = self._calculate_age(player.age)
         age_item = NumericTableWidgetItem(str(age) if age is not None else "")
 
         # Status Item
@@ -379,8 +379,8 @@ class PlayersTab(QtWidgets.QWidget):
         tooltip_parts = [f"ID: {player.id}"]
         if player.gender:
             tooltip_parts.append(f"Gender: {player.gender}")
-        if player.dob:
-            tooltip_parts.append(f"Date of Birth: {player.dob}")
+        if player.age:
+            tooltip_parts.append(f"Date of Birth: {player.age}")
         if player.phone:
             tooltip_parts.append(f"Phone: {player.phone}")
         if player.email:

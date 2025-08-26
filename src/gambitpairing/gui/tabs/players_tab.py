@@ -24,6 +24,7 @@ from typing import Optional
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QTableWidgetItem
 
 from gambitpairing.gui.dialogs import PlayerManagementDialog
 from gambitpairing.gui.notournament_placeholder import (
@@ -33,7 +34,7 @@ from gambitpairing.gui.notournament_placeholder import (
 from gambitpairing.player import Player
 
 
-class NumericTableWidgetItem(QtWidgets.QTableWidgetItem):
+class NumericTableWidgetItem(QTableWidgetItem):
     """Custom QTableWidgetItem for numerical sorting."""
 
     def __lt__(self, other):
@@ -70,7 +71,6 @@ class PlayersTab(QtWidgets.QWidget):
     request_standings_update = pyqtSignal()
 
     def __init__(self, main_window=None):
-
         # ensure main window
         if not main_window:
             raise RuntimeError(
@@ -146,12 +146,13 @@ class PlayersTab(QtWidgets.QWidget):
         vheader.setMinimumSectionSize(38)
 
         # Initialize placeholders
+
         self.no_tournament_placeholder = NoTournamentPlaceholder(self, "Players")
         self.no_tournament_placeholder.create_tournament_requested.connect(
-            self._trigger_create_tournament
+            self.main_window.prompt_new_tournament
         )
         self.no_tournament_placeholder.import_tournament_requested.connect(
-            self._trigger_import_tournament
+            self.main_window.load_tournament
         )
         self.no_players_placeholder = PlayerPlaceholder(self)
         self.no_players_placeholder.import_players_requested.connect(
@@ -192,7 +193,7 @@ class PlayersTab(QtWidgets.QWidget):
         if not player:
             return
 
-        tournament_started = len(self.tournament.rounds_pairings_ids) > 0
+        tournament_started = self.tournament.started
 
         menu = QtWidgets.QMenu(self)
         edit_action = menu.addAction("Edit Player Details...")
@@ -209,11 +210,9 @@ class PlayersTab(QtWidgets.QWidget):
         action = menu.exec(self.players_tbl.mapToGlobal(point))
 
         if action == edit_action:
-
             # make a switch statement to choose dialogue
-
             dialog = PlayerManagementDialog(
-                self, player_data=player.to_dict(), tournament=self.tournament
+                player, parent=self, tournament=self.tournament
             )
             if dialog.exec():
                 data = dialog.get_player_data()
@@ -255,13 +254,13 @@ class PlayersTab(QtWidgets.QWidget):
 
         elif action == toggle_action:
             # remove player from active Players list
-            self.active_players.remove(player.id)
+            self.tournament.remove(player.id)
             player.is_active = not player.is_active
             status_log_msg = "Withdrawn" if not player.is_active else "Reactivated"
             self.update_player_table_row(player)
             self.history_message.emit(f"Player '{player.name}' {status_log_msg}.")
             self.dirty.emit()
-            self.standings_update_requested.emit()
+            self.request_standings_update.emit()
             self.update_ui_state()
         elif action == remove_action:
             reply = QtWidgets.QMessageBox.question(
@@ -350,33 +349,29 @@ class PlayersTab(QtWidgets.QWidget):
                 # Update Name
                 item.setText(player.name)
 
-                # Update Rating
-                rating_item = self.players_tbl.item(i, 1)
-                rating_item.setText(str(player.rating or ""))
-
                 # Update Age
                 age_item = self.players_tbl.item(i, 2)
-                age = self._calculate_age(player.dob)
-                age_item.setText(str(age) if age is not None else "")
-
-                # Update Status
-                status_item = self.players_tbl.item(i, 3)
-                status_text = "Active" if player.is_active else "Inactive"
-                status_item.setText(status_text)
+                age_item.setText(player.age)
 
                 # Update row color
-                color = (
-                    QtGui.QColor("gray")
-                    if not player.is_active
-                    else self.players_tbl.palette().color(QtGui.QPalette.ColorRole.Text)
-                )
+                color = self.players_tbl.palette().color(QtGui.QPalette.ColorRole.Text)
                 item.setForeground(color)
-                rating_item.setForeground(color)
                 age_item.setForeground(color)
-                status_item.setForeground(color)
                 break
 
+    def player_to_row_items(self, player: Player) -> list[QTableWidgetItem]:
+        """Convert a Player object into a list of QTableWidgetItems for insertion."""
+        return [
+            QTableWidgetItem(player.name),
+            QTableWidgetItem(str(player.age)),
+            QTableWidgetItem(player.phone if hasattr(player, "phone") else ""),
+            QTableWidgetItem(player.email if hasattr(player, "email") else ""),
+            QTableWidgetItem(player.club.name if player.club else ""),
+            QTableWidgetItem(str(player.score)),
+        ]
+
     def add_player_to_table(self, player: Player):
+        """Add a Player to the table of chess players."""
         self.players_tbl.setSortingEnabled(False)  # Disable sorting during insert
         row_position = self.players_tbl.rowCount()
         self.players_tbl.insertRow(row_position)
@@ -385,68 +380,33 @@ class PlayersTab(QtWidgets.QWidget):
         name_item = QtWidgets.QTableWidgetItem(player.name)
         name_item.setData(Qt.ItemDataRole.UserRole, player.id)
 
-        # Rating Item
-        rating_item = NumericTableWidgetItem(str(player.rating or ""))
-
         # Age Item
-        age = self._calculate_age(player.dob)
+        age = player.age
         age_item = NumericTableWidgetItem(str(age) if age is not None else "")
 
         # Status Item
         status_text = "Active" if player.is_active else "Inactive"
-        status_item = QtWidgets.QTableWidgetItem(status_text)
-
-        # Set Tooltip
-        tooltip_parts = [f"ID: {player.id}"]
-        if player.gender:
-            tooltip_parts.append(f"Gender: {player.gender}")
-        if player.dob:
-            tooltip_parts.append(f"Date of Birth: {player.dob}")
-        if player.phone:
-            tooltip_parts.append(f"Phone: {player.phone}")
-        if player.email:
-            tooltip_parts.append(f"Email: {player.email}")
-        if player.club:
-            tooltip_parts.append(f"Club: {player.club}")
-        if player.federation:
-            tooltip_parts.append(f"Federation: {player.federation}")
-        # FIDE metadata if present
-        if getattr(player, "fide_id", None):
-            tooltip_parts.append(f"FIDE ID: {player.fide_id}")
-        if getattr(player, "fide_title", None):
-            tooltip_parts.append(f"Title: {player.fide_title}")
-        if getattr(player, "fide_standard", None) is not None:
-            tooltip_parts.append(f"Std: {player.fide_standard}")
-        if getattr(player, "fide_rapid", None) is not None:
-            tooltip_parts.append(f"Rapid: {player.fide_rapid}")
-        if getattr(player, "fide_blitz", None) is not None:
-            tooltip_parts.append(f"Blitz: {player.fide_blitz}")
-        if getattr(player, "birth_year", None) is not None:
-            tooltip_parts.append(f"Birth Year: {player.birth_year}")
-        if getattr(player, "gender", None):
-            tooltip_parts.append(f"Gender: {player.gender}")
-        tooltip = "\n".join(tooltip_parts)
-        name_item.setToolTip(tooltip)
-        rating_item.setToolTip(tooltip)
-        age_item.setToolTip(tooltip)
-        status_item.setToolTip(tooltip)
+        status_item = QTableWidgetItem(status_text)
 
         # Set color for inactive players
         if not player.is_active:
             color = QtGui.QColor("gray")
             name_item.setForeground(color)
-            rating_item.setForeground(color)
             age_item.setForeground(color)
             status_item.setForeground(color)
 
         self.players_tbl.setItem(row_position, 0, name_item)
-        self.players_tbl.setItem(row_position, 1, rating_item)
-        self.players_tbl.setItem(row_position, 2, age_item)
-        self.players_tbl.setItem(row_position, 3, status_item)
+        self.players_tbl.setItem(row_position, 1, age_item)
+        self.players_tbl.setItem(row_position, 2, status_item)
 
         self.players_tbl.setSortingEnabled(True)
 
-    def toggle_tournament_placeholder(self) -> None:
+    def set_tournament(self, tournament):
+        self.tournament = tournament
+        self.refresh_player_list()
+        self._update_visibility()
+
+    def _update_visibility(self) -> None:
         """Show/hide content based on tournament existence."""
         if not self.tournament:
             # No tournament: show only the placeholder
@@ -474,3 +434,219 @@ class PlayersTab(QtWidgets.QWidget):
                 self.btn_add_player_detail.show()
                 tournament_started = len(self.tournament.rounds_pairings_ids) > 0
                 self.btn_add_player_detail.setEnabled(not tournament_started)
+
+    def import_players_csv(self):
+        """Import players from a csv file.
+        TODO
+        """
+        if self.tournament and len(self.tournament.rounds_pairings_ids) > 0:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Import Error",
+                "Cannot import players after tournament has started.",
+            )
+            return
+        if not self.tournament:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Tournament",
+                "Please create a tournament before importing players.",
+            )
+            return
+
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import Players", "", "CSV Files (*.csv);;Text Files (*.txt)"
+        )
+        if not filename:
+            return
+        try:
+            with open(
+                filename, "r", encoding="utf-8-sig"
+            ) as f:  # Use utf-8-sig for BOM
+                reader = csv.DictReader(f)
+                added_count = 0
+                for row in reader:
+                    name = row.get("Name")
+                    if not name or any(
+                        p.name == name for p in self.tournament.players.values()
+                    ):
+                        continue  # Skip empty names or duplicates
+                    rating_str = row.get("Rating")
+                    rating = (
+                        int(rating_str) if rating_str and rating_str.isdigit() else None
+                    )
+                    player = Player(
+                        name=name,
+                        rating=rating,
+                        gender=row.get("Gender"),
+                        dob=row.get("Date of Birth"),
+                        phone=row.get("Phone"),
+                        email=row.get("Email"),
+                        club=row.get("Club"),
+                        federation=row.get("Federation"),
+                    )
+                    self.tournament.players[player.id] = player
+                    added_count += 1
+            if added_count > 0:
+                self.history_message.emit(
+                    f"Imported {added_count} players from {filename}."
+                )
+                self.dirty.emit()
+                self.refresh_player_list()
+                self.update_ui_state()
+                QtWidgets.QMessageBox.information(
+                    self, "Import Successful", f"Imported {added_count} players."
+                )
+            else:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Import Notice",
+                    "No new players were imported. Check for empty names or duplicates.",
+                )
+        except FileNotFoundError:
+            QtWidgets.QMessageBox.critical(
+                self, "File Error", f"File not found: {filename}"
+            )
+            return
+        except PermissionError:
+            QtWidgets.QMessageBox.critical(
+                self, "File Error", f"Permission denied accessing file: {filename}"
+            )
+            return
+        except UnicodeDecodeError as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Encoding Error",
+                f"Could not read file due to encoding issues.\n"
+                f"Try saving the file as UTF-8.\n\nError: {str(e)}",
+            )
+            return
+        except csv.Error as e:
+            QtWidgets.QMessageBox.critical(
+                self, "CSV Format Error", f"Invalid CSV format.\n\nError: {str(e)}"
+            )
+            return
+
+    def export_players_csv(self):
+        """Export players to a csv file.
+
+        TODO
+        """
+        # This method's logic remains the same
+        if not self.tournament or not self.tournament.players:
+            QtWidgets.QMessageBox.information(
+                self, "Export Error", "No players available to export."
+            )
+            return
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export Players", "", "CSV Files (*.csv)"
+        )
+        if not filename:
+            return
+        try:
+            with open(filename, "w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+
+                writer.writerow(
+                    [
+                        "Name",
+                        "Rating",
+                        "Gender",
+                        "Date of Birth",
+                        "Phone",
+                        "Email",
+                        "Club",
+                        "Federation",
+                        "Active",
+                        "ID",
+                    ]
+                )
+                for player in sorted(
+                    list(self.tournament.players.values()), key=lambda p: p.name
+                ):
+                    writer.writerow(
+                        [
+                            player.name,
+                            player.rating if player.rating is not None else "",
+                            player.gender or "",
+                            player.dob or "",
+                            player.phone or "",
+                            player.email or "",
+                            player.club or "",
+                            player.federation or "",
+                            "Yes" if player.is_active else "No",
+                            player.id,
+                        ]
+                    )
+            self.status_message.emit(f"Players exported to {filename}")
+        except FileNotFoundError:
+            QtWidgets.QMessageBox.critical(
+                self, "File Error", f"File not found: {filename}"
+            )
+            return
+        except PermissionError:
+            QtWidgets.QMessageBox.critical(
+                self, "File Error", f"Permission denied accessing file: {filename}"
+            )
+            return
+        except UnicodeDecodeError as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Encoding Error",
+                f"Could not read file due to encoding issues.\n"
+                f"Try saving the file as UTF-8.\n\nError: {str(e)}",
+            )
+            return
+        except csv.Error as e:
+            QtWidgets.QMessageBox.critical(
+                self, "CSV Format Error", f"Invalid CSV format.\n\nError: {str(e)}"
+            )
+            return
+
+    def refresh_player_list(self):
+        """Make player list current."""
+        self.players_tbl.setSortingEnabled(False)
+        self.players_tbl.setRowCount(0)
+
+        # Use the visibility method to handle all states
+        self._update_visibility()
+
+        # Only populate table if tournament exists and has players
+        if self.tournament and self.tournament.players:
+            for player in sorted(
+                self.tournament.players.values(), key=lambda p: p.name
+            ):
+                self.add_player_to_table(player)
+            self.players_tbl.setSortingEnabled(True)
+
+    def update_ui_state(self):
+        """Show/hide content based on tournament existence."""
+        if not self.tournament:
+            # No tournament: show only the placeholder
+            self.no_tournament_placeholder.show()
+            self.no_players_placeholder.hide()
+            self.players_tbl.hide()
+            self.btn_add_player_detail.hide()  # Completely hide the button
+            self.player_group.hide()  # Hide the group box title for perfect wall
+        else:
+            # Tournament exists: hide placeholder and show appropriate content
+            self.no_tournament_placeholder.hide()
+            self.player_group.show()
+            if not self.tournament.players:
+                # Tournament but no players: show player placeholder
+                self.no_players_placeholder.show()
+                self.players_tbl.hide()
+                self.btn_add_player_detail.hide()  # Hide until first player is added
+                # Hide the group box frame/title to create seamless wall look
+                self.player_group.hide()
+            else:
+                # Tournament with players: show table and add button
+                self.no_players_placeholder.hide()
+                self.player_group.show()
+                self.players_tbl.show()
+                self.btn_add_player_detail.show()
+                tournament_started = len(self.tournament.rounds_pairings_ids) > 0
+                self.btn_add_player_detail.setEnabled(not tournament_started)
+
+
+#  LocalWords:  gray

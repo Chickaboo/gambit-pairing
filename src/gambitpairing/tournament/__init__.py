@@ -1,0 +1,1 @@
+from gambitpairing.tournament.tournament import Tournament

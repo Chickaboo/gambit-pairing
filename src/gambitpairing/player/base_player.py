@@ -42,16 +42,17 @@ class Player:
     def __init__(
         self,
         name: str,
+        age: int,
         phone: Optional[str] = None,
         email: Optional[str] = None,
         club: Optional[Club] = None,
         gender: Optional[str] = None,
-        date_of_birth: Optional[date] = None,
     ) -> None:
         # the player id is for internal use, so it will never be external set.
         self.id: str = generate_id(self.__class__.__name__)
 
         self.name: str = name
+        self.age: int = age
 
         if phone is None:
             logger.info("No phone given for: %s", self)
@@ -79,7 +80,6 @@ class Player:
 
         self.club: Optional[Club] = club
         self.gender: Optional[str] = gender
-        self.dob: Optional[date] = date_of_birth
 
         # History
         self.score: float = 0  # start at the bottom
@@ -103,45 +103,19 @@ class Player:
         # Runtime cache
         self._opponents_played_cache: List[Optional["Player"]] = []
 
+        # internal Gambit Pairing flags
+        self.is_active = None
+
     @property
-    def age(self) -> Optional[int]:
-        """Calculate age from birth year or date of birth.
+    def player_info(self) -> list:
+        """Information about player in the form: [self.name, self.age, self.club].
 
         Returns
         -------
-        int or None
-            The players age, if known
+        list
+            containing the players info. Designed to populate a table.
         """
-        # Try to calculate from date of birth
-        if self.dob:
-            today = date.today()
-            age = relativedelta(today, self.dob)
-
-            return age.years
-        logger.info("%s tried to caa age method. self.dob was: %s", self, self.dob)
-        return None
-
-    @property
-    def date_of_birth(self) -> Optional[date]:
-        """Return the date of birth of this Player.
-
-        Returns
-        -------
-        datetime.date | None
-            The date of the players birth, if known
-        """
-        return self.dob
-
-    @date_of_birth.setter  # type: ignore[attr-defined]
-    def set_date_of_birth(self, value: date) -> None:
-        """Set the date of birth.
-
-        Parameters
-        ----------
-        value : datetime.date
-            the date of the players birth
-        """
-        self.dob = value
+        return [self.name, self.age, self.club]
 
     def get_opponent_objects(
         self, players_dict: Dict[str, "Player"]

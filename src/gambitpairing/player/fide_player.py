@@ -34,11 +34,11 @@ class FidePlayer(Player):
     def __init__(
         self,
         name: str,
+        age: int,
         phone: Optional[str] = None,
         email: Optional[str] = None,
         club: Optional[Club] = None,
         gender: Optional[str] = None,
-        date_of_birth: Optional[date] = None,
         fide_id: Optional[int] = None,
         fide_title: Optional[str] = None,
         fide_standard: Optional[int] = None,
@@ -47,23 +47,21 @@ class FidePlayer(Player):
     ) -> None:
         # initialize all the Player base class attributes
         super().__init__(
-            name=name,
+            name,
+            age,
             phone=phone,
             email=email,
             club=club,
             gender=gender,
-            date_of_birth=date_of_birth,
         )
+        self.is_active: bool = True  # Used for withdrawals
         # FIDE Related data
         self.fide_id: Optional[int] = fide_id
         self.fide_title: Optional[str] = fide_title
         self.fide_standard: Optional[int] = fide_standard
         self.fide_rapid: Optional[int] = fide_rapid
         self.fide_blitz: Optional[int] = fide_blitz
-        if date_of_birth:
-            self.birth_year: int = date_of_birth.year
         self.score: float = 0.0
-        self.is_active: bool = True  # Used for withdrawals
 
     @classmethod
     def from_dict(cls, player_data: Dict[str, Any]) -> "FidePlayer":
