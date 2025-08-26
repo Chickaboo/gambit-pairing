@@ -147,9 +147,11 @@ class PlayersTab(QtWidgets.QWidget):
 
         # Initialize placeholders
         self.no_tournament_placeholder = NoTournamentPlaceholder(self, "Players")
-        self.no_tournament_placeholder.create_tournament_requested.connect(self._)
+        self.no_tournament_placeholder.create_tournament_requested.connect(
+            self._trigger_create_tournament
+        )
         self.no_tournament_placeholder.import_tournament_requested.connect(
-            self.main_window.load_tournament()
+            self._trigger_import_tournament
         )
         self.no_players_placeholder = PlayerPlaceholder(self)
         self.no_players_placeholder.import_players_requested.connect(

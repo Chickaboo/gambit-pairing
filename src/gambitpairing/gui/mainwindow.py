@@ -126,8 +126,11 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
         """Set up the main menu bar, connecting actions to methods in the main window or tabs."""
         menu_bar = self.menuBar()
 
+        assert menu_bar
         # File Menu
         file_menu = menu_bar.addMenu("&File")
+        assert file_menu
+
         self.new_action = self._create_action(
             "&New Tournament...", self.prompt_new_tournament, "Ctrl+N"
         )
@@ -166,6 +169,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
         # Tournament Menu
         tournament_menu = menu_bar.addMenu("&Tournament")
+        assert tournament_menu
         self.start_action = self._create_action(
             "&Start Tournament", self.tournament_tab.start_tournament
         )
@@ -189,6 +193,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
         # Player Menu
         player_menu = menu_bar.addMenu("&Players")
+        assert player_menu
         self.add_player_action = self._create_action(
             "&Add Player...", self.players_tab.add_player_detailed
         )
@@ -209,6 +214,7 @@ class GambitPairingMainWindow(QtWidgets.QMainWindow):
 
         # Help Menu
         help_menu = menu_bar.addMenu("&Help")
+        assert help_menu
         help_menu.addAction("About...", self.show_about_dialog)
         self.update_action = self._create_action(
             "Check for &Updates...", self.check_for_updates_manual
