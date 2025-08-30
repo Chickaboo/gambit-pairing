@@ -1,3 +1,24 @@
+"""
+Round Robin Tournament Pairing System.
+
+This module implements FIDE-compliant round-robin tournament pairings using
+Berger tables. It supports tournaments with 3-16 players and handles both
+even and odd numbers of players (with bye assignments for odd numbers).
+
+The Berger tables ensure that:
+- Each player plays every other player exactly once
+- Color balance is maintained as much as possible
+- Bye assignments follow FIDE rules (highest number gets bye)
+
+Example
+-------
+    >>> from gambitpairing.player import Player
+    >>> players = [Player("Alice"), Player("Bob"), Player("Charlie")]
+    >>> rr = RoundRobin(players)
+    >>> first_round = rr.get_round_pairings(1)
+    >>> print(first_round)
+"""
+
 # Gambit Pairing
 # Copyright (C) 2025  Gambit Pairing developers
 #
@@ -13,27 +34,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-"""
-Round Robin Tournament Pairing System
-
-This module implements FIDE-compliant round-robin tournament pairings using
-Berger tables. It supports tournaments with 3-16 players and handles both
-even and odd numbers of players (with bye assignments for odd numbers).
-
-The Berger tables ensure that:
-- Each player plays every other player exactly once
-- Color balance is maintained as much as possible
-- Bye assignments follow FIDE rules (highest number gets bye)
-
-Example:
-    >>> from gambitpairing.player import Player
-    >>> players = [Player("Alice"), Player("Bob"), Player("Charlie")]
-    >>> rr = RoundRobin(players)
-    >>> first_round = rr.get_round_pairings(1)
-    >>> print(first_round)
-"""
-
 from typing import Iterable, List, Optional, Tuple
 
 from gambitpairing.exceptions import PairingException

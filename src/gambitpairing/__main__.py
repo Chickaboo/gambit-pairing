@@ -40,7 +40,7 @@ def main():
     """Entry point."""
     # define aliases used in styles.qss
     icon_path = str(Path(str(files("gambitpairing.resources.icons"))))
-    # set qt search path for use in styles.qss
+    # set the qt search path for use in styles.qss
     QDir.setSearchPaths("icons", [icon_path])
     exit_code = run_app()
     logger.info("run_app() exited with code: %s", exit_code)
@@ -48,7 +48,7 @@ def main():
 
 
 def set_application_icon(app: QtWidgets.QApplication) -> None:
-    """Set application icon.
+    """Set the application icon.
 
     Parameters
     ----------
@@ -77,7 +77,7 @@ def set_application_icon(app: QtWidgets.QApplication) -> None:
 
 
 def set_application_style(app: QtWidgets.QApplication) -> None:
-    """Set application style.
+    """Set the application style.
 
     Parameters
     ----------

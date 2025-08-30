@@ -59,6 +59,7 @@ class CfcPlayer(Player):
     def __init__(
         self,
         name: str,
+        age: int,
         phone: Optional[str] = None,
         email: Optional[str] = None,
         club: Optional[Club] = None,
@@ -71,11 +72,11 @@ class CfcPlayer(Player):
     ) -> None:
         super().__init__(
             name=name,
+            age=age,
             phone=phone,
             email=email,
             club=club,
             gender=gender,
-            date_of_birth=date_of_birth,
         )
         self.cfc_id = cfc_id
         self.cfc_expiry = cfc_expiry

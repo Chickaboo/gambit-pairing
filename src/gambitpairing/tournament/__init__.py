@@ -1,1 +1,1 @@
-from gambitpairing.tournament.tournament import Tournament
+from gambitpairing.tournament.__main__ import Tournament

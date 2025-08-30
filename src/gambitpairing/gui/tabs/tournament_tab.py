@@ -18,7 +18,8 @@ import logging
 from typing import List, Optional, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QDateTime, Qt, pyqtSignal
+from PyQt6.QtGui import QTextDocument
 
 from gambitpairing.constants import (
     BYE_SCORE,
@@ -32,6 +33,10 @@ from gambitpairing.constants import (
 from gambitpairing.gui.dialogs import ManualPairingDialog
 from gambitpairing.gui.notournament_placeholder import NoTournamentPlaceholder
 from gambitpairing.player import Player
+from gambitpairing.utils.print import (
+    PrintOptionsDialog,
+    TournamentPrintUtils,
+)
 
 
 def get_icon(icon_name: str, fallback_theme_name: str = None) -> QtGui.QIcon:
@@ -993,13 +998,6 @@ class TournamentTab(QtWidgets.QWidget):
 
     def print_pairings(self):
         # Print the current round's pairings table in a clean, ink-friendly, professional format (no input widgets).
-        from PyQt6.QtCore import QDateTime
-        from PyQt6.QtGui import QTextDocument
-
-        from gambitpairing.print_utils import (
-            PrintOptionsDialog,
-            TournamentPrintUtils,
-        )
 
         if self.table_pairings.rowCount() == 0:
             QtWidgets.QMessageBox.information(

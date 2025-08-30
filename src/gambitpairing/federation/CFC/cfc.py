@@ -1,4 +1,4 @@
-"""Chess Federations available in Gambit Pairing."""
+"""To do with the Chess Fedoration of Canada."""
 
 # Gambit Pairing
 # Copyright (C) 2025  Gambit Pairing developers
@@ -16,6 +16,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import List, Literal, Optional, Tuple
-
-Federation = Literal[("CFC", "FIDE")]
+pass

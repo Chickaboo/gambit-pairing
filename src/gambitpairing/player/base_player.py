@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from dateutil.relativedelta import relativedelta
 
 from gambitpairing.club import Club
+from gambitpairing.federation import Federation
 from gambitpairing.type_hints import B, Colour, W
 from gambitpairing.utils import generate_id, setup_logger
 
@@ -43,6 +44,7 @@ class Player:
         self,
         name: str,
         age: int,
+        federation: Optional[Federation] = None,
         phone: Optional[str] = None,
         email: Optional[str] = None,
         club: Optional[Club] = None,
